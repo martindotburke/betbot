@@ -41,14 +41,29 @@ function placeNextBet ()
 
     if (bestBet)
     {
-        console.log ("best bet is ", bestBet.date, bestBet.odds);
+        this._balance -= this._stake;
+
         if (bestBet.result === "D") {
-            this._balance += bestBet.odds -1;
+            this._balance += bestBet.odds * this._stake;
             console.log ("WIN!\t\t" + this._balance);
+
+            this._stake = this._config.stakePerBet;
+            this._lossCount = 0;
         }
         else{
-            this._balance--;
-            console.log ("LOSE!\t\t" + this._balance);
+            this._lossCount ++;
+
+            console.log ("LOSE!\t\t" + this._balance + " (" + this._stake + ")");
+
+            if(this._lossCount >= this._config.maxConsecutiveLosses)
+            {
+                this._stake = this._config.stakePerBet;
+                this._lossCount = 0;
+            }
+            else 
+            {
+                this._stake *= 2;
+            }
         }
     }
 
@@ -78,6 +93,8 @@ function Emulator (config, data)
     this._balance = config.startingBalance;
     this._currentDate = data[0].date;
     this._currentIndex = 0;
+    this._stake = config.stakePerBet;
+    this._lossCount = 0;
 
     placeNextBet.call (this);
 
