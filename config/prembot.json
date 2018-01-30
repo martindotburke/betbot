@@ -2,8 +2,8 @@
     "dataSource": "data/prem",
     "maxConsecutiveLosses": 8,
     "resultTypes": ["d"],
-    "maxOdds": 2,
-    "minOdds": 1.1,
+    "maxOdds": 3,
+    "minOdds": 2,
     "stakePerBet": 1.00,
     "startingBalance": 100
 }
