@@ -1,4 +1,4 @@
-const parse =       require('csv-parse')
+const parse =       require('csv-parse/lib/sync')
 const fs =          require ("fs");
 const prembot =     require ("../config/prembot");
 const Emulator =    require ("./emulator");
@@ -6,9 +6,10 @@ const Emulator =    require ("./emulator");
 const bots = [prembot];
 
 //----------------------------------------------
-function DataObject (date, result, odds)
+function DataObject (date, hometeam, result, odds)
 {
     this.date = date;
+    this.hometeam = hometeam;
     this.result = result;
     this.odds = odds;
 }
@@ -20,13 +21,13 @@ function getFileList (path, onComplete)
 
     var stats = fs.lstatSync (path);
 
-    if (stats.isDirectory)
+    if (stats.isDirectory ())
     {
         var that = this;
         fs.readdir ( path,
             function (err, files) {
                 if (err) {
-                    console.assert (false, "Invalid data source");
+                    console.assert (false, "Invalid data sourcevvvv");
                 }
                 else {
                     onComplete (files.map (filename => path + "/" + filename));
@@ -35,8 +36,8 @@ function getFileList (path, onComplete)
         );
     }
     else if (stats.isFile){
-        console.assert (dataSource.indexOf (".csv")>0, "Invalid data source");
-        onCoplete ([path]);
+        console.assert (path.indexOf (".csv")>0, "Invalid data source");
+        onComplete ([path]);
     }
     else {
         onComplete ();
@@ -44,62 +45,92 @@ function getFileList (path, onComplete)
 }
 
 //----------------------------------------------
-function parseCSVFiles (fileList, onComplete)
+function parseCSVFile (filepath, bookieIndex)
 {
-    var allData = [];
-    var loadStack = [];
-    for (var f = 0; f < fileList.length; f++)
-    {
-        var filepath = fileList[f];
+    var normalData = [];
 
-        loadStack.push (filepath);
+    var data  = fs.readFileSync(filepath, "utf8");
 
-        fs.readFile(filepath, "utf8", function (err, data) {
-            if (err) {
-                throw err; 
-            }
-            loadStack.pop ();
-            parse (data, function (e, items) {
-                //skip first line, this is just header data
-                for (var i = 1; i < items.length; i++) {
-                    //25 = B365
-                    var matchData = items [i];
+    var parsedData = parse (data);
 
-                    allData.push (new DataObject (matchData [1], matchData [6], matchData [25]));
-                }
-
-                if (loadStack.length <= 0){
-                    onComplete (allData);
-                }
-            });
-        });
+    //skip first line, this is just header data
+    for (var i = 1; i < parsedData.length; i++) {
+        //[26] = B365
+        var matchData = parsedData [i];
+        console.log ("matchData ["+bookieIndex+"] = " + matchData [bookieIndex]);
+        normalData.push (new DataObject (matchData [1], matchData [2], matchData [6], matchData [bookieIndex]));
     }
+
+    return normalData;
 }
 
 //----------------------------------------------
 function start () 
 {
-    //parse each bot config
-    for (var i=0; i<bots.length; i++)
-    {
-        var botConfig = bots[i];
+    var botConfig = bots[0];
 
-        //load data
-        var dataSource = botConfig.dataSource;
+    // "maxConsecutiveLosses": 6,
+    // "maxOdds": 99,
+    // "minOdds": 2.8,
+    // "stakePerBet": 1.00,
+    // "startingBalance": 100
 
-        var csvFileList = [];
+    var biggestProfit = {
+        amount: 0,
+        ml: 8,
+        mino: 2.8,
+        maxo: 6
+    };
+
+    // for (var maxLosses = 4; maxLosses <8; maxLosses++)
+    // {
+    //     botConfig.maxConsecutiveLosses = maxLosses;
         
-        getFileList (dataSource, function (fileList) {
-            if(!fileList){
-                console.assert (false, "Invalid data source");
-            }
+    //     for (var minOdds = 2; minOdds<2.9; minOdds += 0.1)
+    //     {
+    //         for( var maxOdds = 2.9; maxOdds < 6; maxOdds += 0.1)
+    //         {
+    //             botConfig.maxOdds = maxOdds;
 
-            parseCSVFiles (fileList, function (finalDataObjs)
-            {
-                var emulator = new Emulator (botConfig, finalDataObjs);
-            });
-        });
-    }
+                for (var bookieID =24; bookieID < 50;  bookieID += 3 )
+
+                {
+                    //load data
+                    var winEverySeason = true;
+                    for(var i=0; i < botConfig.dataSources.length; i++)
+                    {                
+                        var data = parseCSVFile (botConfig.dataSources [i], bookieID);
+                        var emulator = new Emulator (botConfig, data);
+                        var profit = emulator.run ();
+
+                        if(profit > biggestProfit.amount)
+                        {
+                            biggestProfit.amount = profit;
+                        //     biggestProfit.ml = maxLosses;
+                        //     biggestProfit.mino = minOdds;
+                        //     biggestProfit.maxo = maxOdds;
+                            biggestProfit.bookie = bookieID;
+                        }
+
+                        if(profit < 0){
+                            winEverySeason = false;
+                        }
+                    }
+
+                    if(winEverySeason)
+                    {
+                        console.log ("------------------------------------------------");
+                        console.log ("Wins every time! Keep this config");
+                        console.log (botConfig);
+                        console.log ("------------------------------------------------");
+                    }
+                }
+    //         }
+    //     }  
+    // }  
+
+    console.log ("Most profitable strategy in all seasons");
+    console.log (biggestProfit);
 }
 
 start();

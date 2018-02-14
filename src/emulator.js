@@ -1,3 +1,4 @@
+var fib = [1,1,2,3,5,8,13,21,34];
 function sortByDate (a, b)
 {
     if(a.date>b.date)
@@ -5,6 +6,14 @@ function sortByDate (a, b)
         return 1;
     }
     if(a.date<b.date)
+    {
+        return -1;
+    }
+    if(a.hometeam<b.hometeam)
+    {
+        return 1;
+    }
+    if(a.hometeam>b.hometeam)
     {
         return -1;
     }
@@ -20,11 +29,10 @@ function placeNextBet ()
     var nextDate = this._data [++this._currentIndex].date;
     var bestBet = null;
 
-    for ( ; this._currentIndex < this._data.length-1, thisDate === nextDate; ++this._currentIndex)
+    for ( ; this._currentIndex < this._data.length-1 && thisDate === nextDate; this._currentIndex++)
     {
         var fixture = this._data [this._currentIndex];
         var odds = fixture.odds;
-
         if(odds > this._config.minOdds && odds < this._config.maxOdds )
         {
             if(!bestBet || bestBet.odds > odds)
@@ -43,17 +51,18 @@ function placeNextBet ()
     {
         this._balance -= this._stake;
 
+        this._lowestBalance = Math.min (this._lowestBalance, this._balance);
+
         if (bestBet.result === "D") {
             this._balance += bestBet.odds * this._stake;
-            console.log ("WIN!\t\t" + this._balance);
-
+            this._highestBalance = Math.max (this._lowestBalance, this._balance);
             this._stake = this._config.stakePerBet;
             this._lossCount = 0;
         }
         else{
             this._lossCount ++;
 
-            console.log ("LOSE!\t\t" + this._balance + " (" + this._stake + ")");
+            //console.log ("LOSE!\t\t" + this._balance + " (" + this._stake + ")");
 
             if(this._lossCount >= this._config.maxConsecutiveLosses)
             {
@@ -62,14 +71,31 @@ function placeNextBet ()
             }
             else 
             {
-                this._stake *= 2;
+                this._stake = Math.min (this._balance, this._config.stakePerBet * fib [this._lossCount]);
             }
         }
     }
 
-    if(this._currentIndex < this._data.length-1)
+    if((this._currentIndex < this._data.length-1) && this._balance >= this._stake)
     {
-        placeNextBet.call (this);
+        return placeNextBet.call (this);
+    }
+    else{
+        //print result
+        // console.log ("----------------------------------");
+        // console.log ("min   : " + this._lowestBalance);
+        // console.log ("max   : " + this._highestBalance);
+         var profit = this._balance  - this._config.startingBalance;
+        // if(profit > 0){
+        //     console.log("p/l   : \x1b[32m%s\x1b[0m", profit);
+        // }
+        // else {
+        //     console.log("p/l   : \x1b[31m%s\x1b[0m", profit);
+        // }
+
+        // console.log ("\n\n");
+
+        return profit;
     }
 }
 
@@ -77,10 +103,9 @@ function Emulator (config, data)
 {
     this._config = config;
 
-
     this._data = data;
 
-    //change dates from dd/mm/yy to yy/mm/dd ofr easier sorting
+    //change dates from dd/mm/yy to yy/mm/dd for easier sorting
     this._data = this._data.map (item => {
         var ret = item;
         var date = item.date.split ("/");
@@ -89,23 +114,21 @@ function Emulator (config, data)
     })
 
     this._data = data.sort (sortByDate);
+}
 
-    this._balance = config.startingBalance;
-    this._currentDate = data[0].date;
+Emulator.prototype.run = function () {
+    this._balance = this._config.startingBalance;
     this._currentIndex = 0;
-    this._stake = config.stakePerBet;
+    this._stake = this._config.stakePerBet;
     this._lossCount = 0;
 
-    placeNextBet.call (this);
+    this._lowestBalance = this._balance;
+    this._highestBalance = this._balance;
+    this._finalBalance = this._balance;
 
-    for (var i=0; i<5; i++)
-    {
-        var d = data[i];
-        for (var k in d)
-        {
-            //console.log ("d["+k+"] = " + d[k])
-        }
-    }
+    var profit = placeNextBet.call (this);
+
+    return profit;
 }
 
 module.exports = Emulator;

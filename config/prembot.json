@@ -1,7 +1,19 @@
 {
-    "dataSource": "data/prem",
-    "maxConsecutiveLosses": 8,
+    "dataSources": [
+        "data/prem/07-08.csv", 
+        "data/prem/08-09.csv", 
+        "data/prem/09-10.csv", 
+        "data/prem/10-11.csv",
+        "data/prem/11-12.csv",
+        "data/prem/12-13.csv",
+        "data/prem/13-14.csv",
+        "data/prem/14-15.csv",
+        "data/prem/15-16.csv",
+        "data/prem/16-17.csv"
+    ]
+    ,
     "resultTypes": ["d"],
+    "maxConsecutiveLosses": 6,
     "maxOdds": 99,
     "minOdds": 2.8,
     "stakePerBet": 1.00,
